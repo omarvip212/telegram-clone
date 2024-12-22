@@ -2,34 +2,38 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, Settings, User } from 'lucide-react'
+import { Search, Settings, User, LogOut } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-
-const chatList = [
-  { id: 1, name: 'Alice', message: 'Hey, how are you?' },
-  { id: 2, name: 'Bob', message: 'Did you see the new movie?' },
-  { id: 3, name: 'Charlie', message: 'Meeting at 3 PM' },
-]
+import { useStore } from '@/lib/store'
+import { useRouter } from 'next/navigation'
 
 export function Sidebar() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [userName, setUserName] = useState('Your Name')
-  const [userImage, setUserImage] = useState('/placeholder-avatar.jpg')
+  
+  const currentUser = useStore(state => state.currentUser)
+  const users = useStore(state => state.users)
+  const logout = useStore(state => state.logout)
 
   useEffect(() => {
-    // Load user details from localStorage
-    const storedName = localStorage.getItem('userName')
-    const storedImage = localStorage.getItem('userImage')
-    
-    if (storedName) setUserName(storedName)
-    if (storedImage) setUserImage(storedImage)
-  }, [])
+    if (!currentUser) {
+      router.push('/login')
+    }
+  }, [currentUser, router])
 
-  const filteredChats = chatList.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  if (!currentUser) return null
+
+  const filteredUsers = users.filter(user => 
+    user.id !== currentUser.id && 
+    user.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
+  }
 
   return (
     <div className="w-[280px] bg-white border-r flex flex-col h-full">
@@ -37,20 +41,26 @@ export function Sidebar() {
       <div className="p-4 flex items-center justify-between border-b">
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={userImage} alt={userName} />
+            <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
             <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-sm font-medium">{userName}</h2>
+            <h2 className="text-sm font-medium">{currentUser.name}</h2>
             <p className="text-xs text-gray-500">Online</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-          <Link href="/settings">
-            <Settings className="h-5 w-5" />
-            <span className="sr-only">Settings</span>
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+            <Link href="/settings">
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Settings</span>
+            </Link>
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
+            <LogOut className="h-5 w-5" />
+            <span className="sr-only">Logout</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search Section */}
@@ -59,7 +69,7 @@ export function Sidebar() {
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <Input
             type="text"
-            placeholder="Search"
+            placeholder="Search users"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-gray-50 border-0"
@@ -67,26 +77,23 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Chat List */}
+      {/* Users List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredChats.map(chat => (
+        {filteredUsers.map(user => (
           <Link 
-            href={`/chat/${chat.id}`} 
-            key={chat.id} 
+            href={`/chat/${user.id}`} 
+            key={user.id} 
             className="flex items-center px-4 py-3 hover:bg-gray-50 transition-colors"
           >
             <Avatar className="h-10 w-10 mr-3">
-              <AvatarImage 
-                src={`https://api.dicebear.com/6.x/initials/svg?seed=${chat.name}`} 
-                alt={chat.name} 
-              />
-              <AvatarFallback>{chat.name[0]}</AvatarFallback>
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback>{user.name[0]}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
               <div className="flex justify-between items-baseline">
-                <h3 className="text-sm font-medium truncate">{chat.name}</h3>
+                <h3 className="text-sm font-medium truncate">{user.name}</h3>
               </div>
-              <p className="text-sm text-gray-500 truncate">{chat.message}</p>
+              <p className="text-sm text-gray-500 truncate">{user.email}</p>
             </div>
           </Link>
         ))}

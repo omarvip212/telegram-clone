@@ -1,83 +1,105 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Camera, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { User } from 'lucide-react'
+import { useStore } from '@/lib/store'
 
 export default function Settings() {
   const router = useRouter()
-  const [name, setName] = useState('Your Name')
-  const [imageUrl, setImageUrl] = useState('/placeholder-avatar.jpg')
+  const currentUser = useStore(state => state.currentUser)
+  const updateProfile = useStore(state => state.updateProfile)
+  
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [avatar, setAvatar] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [message, setMessage] = useState({ type: '', text: '' })
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImageUrl(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+  useEffect(() => {
+    if (!currentUser) {
+      router.push('/login')
+      return
+    }
+    
+    setName(currentUser.name)
+    setEmail(currentUser.email)
+    setAvatar(currentUser.avatar)
+  }, [currentUser, router])
+
+  if (!currentUser) return null
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSaving(true)
+    setMessage({ type: '', text: '' })
+
+    try {
+      await updateProfile({
+        name,
+        email,
+        avatar: `https://api.dicebear.com/6.x/initials/svg?seed=${name}`
+      })
+      setMessage({ type: 'success', text: 'Profile updated successfully!' })
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to update profile' })
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Here you would typically update the user profile in your backend
-    localStorage.setItem('userName', name)
-    localStorage.setItem('userImage', imageUrl)
-    router.push('/chat')
-  }
-
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex flex-col items-center space-y-4">
-              <div className="relative">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={imageUrl} alt={name} />
-                  <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
-                </Avatar>
-                <Label
-                  htmlFor="image-upload"
-                  className="absolute bottom-0 right-0 p-1 rounded-full bg-blue-500 text-white cursor-pointer hover:bg-blue-600"
-                >
-                  <Camera className="h-4 w-4" />
-                  <span className="sr-only">Upload image</span>
-                </Label>
-                <Input
-                  id="image-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                />
-              </div>
-              <div className="w-full space-y-2">
-                <Label htmlFor="name">Display Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full">
-              Save Changes
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
+      <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6 bg-white p-8 rounded-lg shadow">
+        <div className="flex flex-col items-center gap-4">
+          <Avatar className="h-24 w-24">
+            <AvatarImage src={avatar} alt={name} />
+            <AvatarFallback><User className="h-12 w-12" /></AvatarFallback>
+          </Avatar>
+          <h2 className="text-2xl font-bold">Profile Settings</h2>
+        </div>
+
+        {message.text && (
+          <div className={`p-3 rounded-md text-sm ${
+            message.type === 'success' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+          }`}>
+            {message.text}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="name">Name</Label>
+          <Input
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={isSaving}
+        >
+          {isSaving ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </form>
     </div>
   )
 }
